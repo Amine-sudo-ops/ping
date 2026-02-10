@@ -1,6 +1,6 @@
 - name: Ping Test
-  hosts: all
+  hosts: ping_target
   gather_facts: no
   tasks:
-    - name: Ping all hosts
+    - name: Ping 10.64.92.3
       ansible.builtin.ping:
