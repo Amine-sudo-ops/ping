@@ -1,0 +1,173 @@
+- name: Patch Management - Ubuntu Security Updates Only
+  hosts: my_ubuntu_vms
+  become: yes
+  gather_facts: yes
+
+  tasks:
+
+    - name: Ensure target is Ubuntu
+      fail:
+        msg: "This playbook is only for Ubuntu systems."
+      when: ansible_distribution != "Ubuntu"
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Fix interrupted dpkg if needed
+      command: dpkg --configure -a
+      changed_when: false
+
+    # 🔎 LIST SECURITY UPDATES ONLY
+    - name: List available security updates
+      shell: |
+        apt list --upgradable 2>/dev/null | grep -i security || true
+      register: security_updates
+      changed_when: false
+
+    - name: Show available security updates
+      debug:
+        msg: "{{ security_updates.stdout_lines }}"
+      when: security_updates.stdout_lines | length > 0
+
+    - name: No security updates available
+      debug:
+        msg: "No security updates available."
+      when: security_updates.stdout_lines | length == 0
+
+    # 🔐 APPLY SECURITY UPDATES ONLY
+    - name: Apply security updates only
+      apt:
+        upgrade: security
+        autoremove: yes
+    # NBR CVE
+    - name: Count security updates
+      debug:
+        msg: "Number of security updates: {{ security_updates.stdout_lines | length }}"
+
+
+    # 🔄 CHECK REBOOT
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot if required
+      reboot:
+        msg: "Reboot initiated after security updates"
+        reboot_timeout: 600
+      when: reboot_required.stat.exists
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
