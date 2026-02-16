@@ -5,10 +5,17 @@
 
   tasks:
 
-    - name: Ensure target is Ubuntu
+    - name: Ensure system is Ubuntu
       fail:
-        msg: "This playbook is only for Ubuntu systems."
+        msg: "This playbook supports Ubuntu only."
       when: ansible_distribution != "Ubuntu"
+
+    - name: Wait for apt lock to be released
+      shell: |
+        while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+          sleep 5
+        done
+      changed_when: false
 
     - name: Update apt cache
       apt:
@@ -18,34 +25,39 @@
     - name: Fix interrupted dpkg if needed
       command: dpkg --configure -a
       changed_when: false
+      failed_when: false
 
-    # 🔎 LIST SECURITY UPDATES ONLY
-    - name: List available security updates
+    # 🔎 LIST SECURITY UPDATES
+    - name: Get list of security updates
       shell: |
-        apt list --upgradable 2>/dev/null | grep -i security || true
+        apt list --upgradable 2>/dev/null | grep "$(lsb_release -cs)-security" || true
       register: security_updates
       changed_when: false
+      failed_when: false
 
-    - name: Show available security updates
+    - name: Display security update status
       debug:
-        msg: "{{ security_updates.stdout_lines }}"
-      when: security_updates.stdout_lines | length > 0
-
-    - name: No security updates available
-      debug:
-        msg: "No security updates available."
-      when: security_updates.stdout_lines | length == 0
+        msg: >
+          {% if security_updates.stdout_lines | length > 0 %}
+          Security updates available:
+          {{ security_updates.stdout_lines }}
+          {% else %}
+          No security updates available.
+          {% endif %}
 
     # 🔐 APPLY SECURITY UPDATES ONLY
     - name: Apply security updates only
-      apt:
-        upgrade: security
-        autoremove: yes
-    # NBR CVE
-    - name: Count security updates
-      debug:
-        msg: "Number of security updates: {{ security_updates.stdout_lines | length }}"
-
+      shell: |
+        apt-get upgrade -y \
+        -o Dir::Etc::sourcelist=/etc/apt/sources.list \
+        -o Dir::Etc::sourceparts=/etc/apt/sources.list.d \
+        -o APT::Get::List-Cleanup=0 \
+        -o APT::Upgrade-Allow-New=1 \
+        -o APT::Get::Only-Upgrade=true \
+        -o APT::Default-Release="$(lsb_release -cs)-security"
+      register: upgrade_result
+      changed_when: "'upgraded' in upgrade_result.stdout or 'newly installed' in upgrade_result.stdout"
+      failed_when: false
 
     # 🔄 CHECK REBOOT
     - name: Check if reboot is required
@@ -58,116 +70,3 @@
         msg: "Reboot initiated after security updates"
         reboot_timeout: 600
       when: reboot_required.stat.exists
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
