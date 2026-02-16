@@ -1,5 +1,5 @@
 - name: Patch Management - Ubuntu Security Updates Only
-  hosts: my_ubuntu_vms
+  hosts: all
   become: yes
   gather_facts: yes
 
