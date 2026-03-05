@@ -1,5 +1,5 @@
 - name: Patch Management - Ubuntu Security Updates Only
-  hosts: 10.64.16.33
+  hosts: 10.64.10.90
   become: yes
   gather_facts: yes
 
