@@ -1,5 +1,5 @@
 - name: Update Ubuntu with full verbose output
-  hosts: all
+  hosts: 10.64.16.16
   become: yes
   gather_facts: no
 
