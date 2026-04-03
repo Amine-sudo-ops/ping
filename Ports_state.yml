@@ -6,10 +6,10 @@
   vars:
     ansible_network_os: cisco.ios.ios
     ansible_user: SvrHKuPbnrYmPZa
-    ansible_password: $1$q4eM$86rDCg2
+    ansible_password: '$1$q4eM$86rDCg2'
     ansible_become: true
     ansible_become_method: enable
-    ansible_become_password: @ntkXB9S}*D-42u2
+    ansible_become_password: '@ntkXB9S}*D-42u2'
 
   tasks:
     - name: Run interface show commands
