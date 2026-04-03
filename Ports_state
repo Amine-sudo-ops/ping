@@ -1,0 +1,26 @@
+- name: Collect Cisco switch interface status
+  hosts: cisco_switches
+  gather_facts: no
+  connection: ansible.netcommon.network_cli
+
+  vars:
+    ansible_network_os: cisco.ios.ios
+    ansible_user: SvrHKuPbnrYmPZa
+    ansible_password: $1$q4eM$86rDCg2
+    ansible_become: true
+    ansible_become_method: enable
+    ansible_become_password: @ntkXB9S}*D-42u2
+
+  tasks:
+    - name: Run interface show commands
+      cisco.ios.ios_command:
+        commands:
+          - show interfaces status
+          - show interfaces counters
+          - show interfaces counters errors
+          - show interfaces
+      register: switch_output
+
+    - name: Display result
+      debug:
+        var: switch_output.stdout_lines
