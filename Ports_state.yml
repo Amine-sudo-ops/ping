@@ -1,5 +1,5 @@
 - name: Collect Cisco switch interface status
-  hosts: cisco_switches
+  hosts: all
   gather_facts: no
   connection: ansible.netcommon.network_cli
 
