@@ -1,19 +1,17 @@
-- name: Test IP reachability of all switches
+- name: Test switch connection
   hosts: all
   gather_facts: no
-  connection: local
+  connection: ansible.netcommon.network_cli
+
+  vars:
+    ansible_network_os: cisco.ios.ios
 
   tasks:
-    - name: Ping switch IP from AWX server
-      ansible.builtin.command: "ping -c 4 {{ ansible_host }}"
-      register: ping_result
-      ignore_errors: yes
+    - name: Test CLI access
+      cisco.ios.ios_command:
+        commands:
+          - show version
+      register: result
 
-    - name: Show ping result
-      debug:
-        msg: |
-          Host: {{ inventory_hostname }}
-          IP: {{ ansible_host }}
-          Status: {{ 'REACHABLE' if ping_result.rc == 0 else 'UNREACHABLE' }}
-          Output:
-          {{ ping_result.stdout }}
+    - debug:
+        var: result.stdout_lines
