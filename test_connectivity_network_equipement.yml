@@ -1,0 +1,19 @@
+- name: Test IP reachability of all switches
+  hosts: all
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: Ping switch IP from AWX server
+      ansible.builtin.command: "ping -c 4 {{ ansible_host }}"
+      register: ping_result
+      ignore_errors: yes
+
+    - name: Show ping result
+      debug:
+        msg: |
+          Host: {{ inventory_hostname }}
+          IP: {{ ansible_host }}
+          Status: {{ 'REACHABLE' if ping_result.rc == 0 else 'UNREACHABLE' }}
+          Output:
+          {{ ping_result.stdout }}
