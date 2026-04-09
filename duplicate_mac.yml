@@ -1,0 +1,57 @@
+- name: Detect duplicate MAC addresses on Cisco L3 switch
+  hosts: all
+  gather_facts: no
+  connection: ansible.netcommon.network_cli
+
+  vars:
+    ansible_network_os: cisco.ios.ios
+    ansible_user: SvrHKuPbnrYmPZa
+    ansible_password: "$1$q4eM$86rDCg2"
+    ansible_become: true
+    ansible_become_method: enable
+    ansible_become_password: '@ntkXB9S}*D-42u2'
+
+  tasks:
+
+    - name: Execute show logging
+      cisco.ios.ios_command:
+        commands:
+          - show logging
+      register: log_output
+
+    - name: Extract MAC flap entries
+      set_fact:
+        mac_flap_entries: >-
+          {{
+            log_output.stdout[0].split('\n')
+            | select('search', 'MACFLAP_NOTIF')
+            | list
+          }}
+
+    - name: Display no duplicate MAC found
+      debug:
+        msg: "Aucune MAC dupliquée détectée sur le réseau."
+      when: mac_flap_entries | length == 0
+
+    - name: Parse duplicate MAC details
+      set_fact:
+        parsed_mac_flaps: "{{ parsed_mac_flaps | default([]) + [ {
+          'mac': item | regex_search('Host\\s+([0-9a-fA-F\\.]+)', '\\1'),
+          'vlan': item | regex_search('vlan\\s+(\\d+)', '\\1'),
+          'port1': item | regex_search('between port\\s+(\\S+)', '\\1'),
+          'port2': item | regex_search('and port\\s+(\\S+)', '\\1')
+        } ] }}"
+      loop: "{{ mac_flap_entries }}"
+      when: mac_flap_entries | length > 0
+
+    - name: Display duplicate MAC report
+      debug:
+        msg: |
+          MAC dupliquée détectée :
+          MAC   : {{ item.mac }}
+          VLAN  : {{ item.vlan }}
+          PORT1 : {{ item.port1 }}
+          PORT2 : {{ item.port2 }}
+      loop: "{{ parsed_mac_flaps | unique }}"
+      when: parsed_mac_flaps is defined
+
