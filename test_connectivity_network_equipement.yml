@@ -27,39 +27,7 @@
   ansible_connection: ansible.netcommon.network_cli
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
 
-  tasks:
-
-    - name: Send 'show clock' command to verify connectivity
-      cisco.ios.ios_command:
-        commands:
-          - show clock
-      register: probe_result
-      ignore_errors: true
-
-    - name: Set host status to REACHABLE
-      ansible.builtin.set_fact:
-        host_status: "REACHABLE"
-        host_output: "{{ probe_result.stdout[0] | default('') }}"
-      when:
-        - probe_result is not unreachable
-        - probe_result is not failed
-
-    - name: Set host status to UNREACHABLE
-      ansible.builtin.set_fact:
-        host_status: "UNREACHABLE"
-        host_output: "{{ probe_result.msg | default('Connection failed') }}"
-      when: >
-        probe_result is unreachable or
-        probe_result is failed
-
-# -----------------------------------------------------------------------------
-# Generate consolidated report on the AWX controller (localhost)
-# -----------------------------------------------------------------------------
-- name: Generate reachability report
-  hosts: all
-  gather_facts: false
-
- tasks:
+tasks:
 
     - name: Send 'show clock' command to verify connectivity
       cisco.ios.ios_command:
@@ -91,4 +59,6 @@
       ansible.builtin.debug:
         msg: "Host {{ inventory_hostname }} ({{ ansible_host | default('no IP') }}) is UNREACHABLE"
       when: host_status == "UNREACHABLE"
+
+
 
