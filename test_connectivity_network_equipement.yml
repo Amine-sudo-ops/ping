@@ -24,6 +24,7 @@
 - name: Check reachability of all Cisco switches
   hosts: all
   gather_facts: false
+  ansible_connection: ansible.netcommon.network_cli
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
 
   tasks:
