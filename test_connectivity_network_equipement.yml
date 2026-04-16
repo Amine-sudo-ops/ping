@@ -1,4 +1,4 @@
-- name: Test switch connection
+- name: Check Cisco switch reachability
   hosts: all
   gather_facts: no
   connection: ansible.netcommon.network_cli
@@ -7,11 +7,12 @@
     ansible_network_os: cisco.ios.ios
 
   tasks:
-    - name: Test CLI access
+    - name: Verify switch is reachable
       cisco.ios.ios_command:
         commands:
           - show version
       register: result
 
-    - debug:
-        var: result.stdout_lines
+    - name: Display switch response
+      debug:
+        msg: "{{ inventory_hostname }} is reachable"
