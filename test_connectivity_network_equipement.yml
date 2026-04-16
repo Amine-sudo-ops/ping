@@ -56,7 +56,7 @@
 # Generate consolidated report on the AWX controller (localhost)
 # -----------------------------------------------------------------------------
 - name: Generate reachability report
-  hosts: localhost
+  hosts: all
   gather_facts: false
 
  tasks:
