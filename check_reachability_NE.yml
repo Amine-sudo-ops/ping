@@ -35,41 +35,24 @@
   gather_facts: false
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
   
-  vars:
-    ansible_connection: ansible.netcommon.network_cli
-    ansible_network_os: cisco.ios.ios
-tasks:
-
-    - name: Send 'show clock' command to verify connectivity
-      cisco.ios.ios_command:
-        commands:
-          - show clock
-      register: probe_result
+  tasks:
+    - name: Ping host from AWX controller
+      ansible.builtin.command:
+        cmd: "ping -c 2 -W 2 {{ ansible_host }}"
+      register: ping_result
       ignore_errors: true
+      delegate_to: localhost
+      changed_when: false
 
-    - name: Set host status to REACHABLE
-      ansible.builtin.set_fact:
-        host_status: "REACHABLE"
-      when:
-        - probe_result is not unreachable
-        - probe_result is not failed
-
-    - name: Set host status to UNREACHABLE
-      ansible.builtin.set_fact:
-        host_status: "UNREACHABLE"
-      when: >
-        probe_result is unreachable or
-        probe_result is failed
-
-    - name: "[REACHABLE] {{ inventory_hostname }} ({{ ansible_host | default('no IP') }})"
+    - name: "[REACHABLE] {{ inventory_hostname }}"
       ansible.builtin.debug:
-        msg: "Host {{ inventory_hostname }} ({{ ansible_host | default('no IP') }}) is REACHABLE"
-      when: host_status == "REACHABLE"
+        msg: "Host {{ inventory_hostname }} ({{ ansible_host }}) is REACHABLE"
+      when: ping_result.rc == 0
 
-    - name: "[UNREACHABLE] {{ inventory_hostname }} ({{ ansible_host | default('no IP') }})"
+    - name: "[UNREACHABLE] {{ inventory_hostname }}"
       ansible.builtin.debug:
-        msg: "Host {{ inventory_hostname }} ({{ ansible_host | default('no IP') }}) is UNREACHABLE"
-      when: host_status == "UNREACHABLE"
+        msg: "Host {{ inventory_hostname }} ({{ ansible_host }}) is UNREACHABLE"
+      when: ping_result.rc != 0
 
 
     - name: Fail the playbook if any switch is unreachable
