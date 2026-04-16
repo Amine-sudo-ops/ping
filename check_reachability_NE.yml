@@ -38,7 +38,7 @@
   vars:
     ansible_connection: ansible.netcommon.network_cli
     ansible_network_os: cisco.ios.ios
-  tasks:
+tasks:
 
     - name: Send 'show clock' command to verify connectivity
       cisco.ios.ios_command:
@@ -50,7 +50,6 @@
     - name: Set host status to REACHABLE
       ansible.builtin.set_fact:
         host_status: "REACHABLE"
-        host_output: "{{ probe_result.stdout[0] | default('') }}"
       when:
         - probe_result is not unreachable
         - probe_result is not failed
@@ -58,58 +57,20 @@
     - name: Set host status to UNREACHABLE
       ansible.builtin.set_fact:
         host_status: "UNREACHABLE"
-        host_output: "{{ probe_result.msg | default('Connection failed') }}"
       when: >
         probe_result is unreachable or
         probe_result is failed
 
-# -----------------------------------------------------------------------------
-# Generate consolidated report on the AWX controller (localhost)
-# -----------------------------------------------------------------------------
-- name: Generate reachability report
-  hosts: localhost
-  gather_facts: false
-
-  tasks:
-
-    - name: Build reachable hosts list
-      ansible.builtin.set_fact:
-        reachable_hosts: >-
-          {{
-            groups['all']
-            | map('extract', hostvars)
-            | selectattr('host_status', 'defined')
-            | selectattr('host_status', 'equalto', 'REACHABLE')
-            | map(attribute='inventory_hostname')
-            | list
-          }}
-
-    - name: Build unreachable hosts list
-      ansible.builtin.set_fact:
-        unreachable_hosts: >-
-          {{
-            groups['all']
-            | map('extract', hostvars)
-            | selectattr('host_status', 'defined')
-            | selectattr('host_status', 'equalto', 'UNREACHABLE')
-            | list
-            | map(attribute='inventory_hostname')
-            | list
-          }}
-
-    - name: Per-host status detail
+    - name: "[REACHABLE] {{ inventory_hostname }} ({{ ansible_host | default('no IP') }})"
       ansible.builtin.debug:
-        msg: "[{{ hostvars[item].host_status | default('UNKNOWN') }}] {{ item }} ({{ hostvars[item].ansible_host | default('no IP') }}) | {{ hostvars[item].host_output | default('no output') }}"
-      loop: "{{ groups['all'] }}"
-      loop_control:
-        label: "{{ item }}"
+        msg: "Host {{ inventory_hostname }} ({{ ansible_host | default('no IP') }}) is REACHABLE"
+      when: host_status == "REACHABLE"
 
-    - name: "==== REACHABILITY SUMMARY ===="
+    - name: "[UNREACHABLE] {{ inventory_hostname }} ({{ ansible_host | default('no IP') }})"
       ansible.builtin.debug:
-        msg:
-          - "Total switches checked : {{ groups['all'] | length }}"
-          - "Reachable              : {{ reachable_hosts | length }} -> {{ reachable_hosts }}"
-          - "Unreachable            : {{ unreachable_hosts | length }} -> {{ unreachable_hosts }}"
+        msg: "Host {{ inventory_hostname }} ({{ ansible_host | default('no IP') }}) is UNREACHABLE"
+      when: host_status == "UNREACHABLE"
+
 
     - name: Fail the playbook if any switch is unreachable
       ansible.builtin.fail:
