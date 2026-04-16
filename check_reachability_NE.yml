@@ -34,7 +34,10 @@
   hosts: all
   gather_facts: false
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
-
+  
+  vars:
+    ansible_connection: ansible.netcommon.network_cli
+    ansible_network_os: cisco.ios.ios
   tasks:
 
     - name: Send 'show clock' command to verify connectivity
