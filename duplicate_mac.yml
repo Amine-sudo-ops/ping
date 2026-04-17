@@ -55,3 +55,16 @@
       loop: "{{ parsed_mac_flaps | unique }}"
       when: parsed_mac_flaps is defined
 
+    # 🔥 ETAPE AJOUTÉE : faire échouer le job
+    - name: Fail if duplicate MAC detected
+      fail:
+        msg: |
+          MAC dupliquée détectée sur {{ inventory_hostname }} :
+
+          {% for item in parsed_mac_flaps | unique %}
+          - MAC   : {{ item.mac }}
+            VLAN  : {{ item.vlan }}
+            PORT1 : {{ item.port1 }}
+            PORT2 : {{ item.port2 }}
+          {% endfor %}
+      when: mac_flap_entries | length > 0
