@@ -68,3 +68,16 @@
             PORT2 : {{ item.port2 }}
           {% endfor %}
       when: mac_flap_entries | length > 0
+
+
+    - name: Save duplicate MAC report for notification
+      set_stats:
+      data:
+       mac_report: |
+        {% for item in parsed_mac_flaps | unique %}
+        - MAC   : {{ item.mac }}
+          VLAN  : {{ item.vlan }}
+          PORT1 : {{ item.port1 }}
+          PORT2 : {{ item.port2 }}
+        {% endfor %}
+      when: parsed_mac_flaps is defined
