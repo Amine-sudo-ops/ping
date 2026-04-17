@@ -55,7 +55,14 @@
       loop: "{{ parsed_mac_flaps | unique }}"
       when: parsed_mac_flaps is defined
 
-    # 🔥 ETAPE AJOUTÉE : faire échouer le job
+    # 🔥 Sauvegarde pour notification AWX
+    - name: Save duplicate MAC report for notification
+      set_stats:
+        data:
+          mac_report: "{{ parsed_mac_flaps | unique }}"
+      when: parsed_mac_flaps is defined
+
+    # 🔥 Fail du job
     - name: Fail if duplicate MAC detected
       fail:
         msg: |
@@ -68,9 +75,3 @@
             PORT2 : {{ item.port2 }}
           {% endfor %}
       when: mac_flap_entries | length > 0
-
-  - name: Save duplicate MAC report for notification
-    set_stats:
-      data:
-        mac_report: "{{ parsed_mac_flaps | unique }}"
-    when: parsed_mac_flaps is defined
