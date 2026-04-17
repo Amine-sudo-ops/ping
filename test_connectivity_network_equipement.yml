@@ -36,5 +36,19 @@
       register: probe_result
       ignore_errors: true
 
+    - name: Set host status
+      set_fact:
+        host_status: "{{ 'reachable' if (probe_result is not failed and probe_result is not unreachable) else 'unreachable' }}"
+
+    - name: Display result per host
+      debug:
+        msg: "{{ inventory_hostname }} --> {{ host_status }}"
+
+    # 👉 étape clé : faire échouer si unreachable
+    - name: Fail if host is unreachable
+      fail:
+        msg: "{{ inventory_hostname }} is unreachable"
+      when: host_status == "unreachable"
+
 
 
