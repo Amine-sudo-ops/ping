@@ -1,4 +1,3 @@
----
 # =============================================================================
 # Playbook  : cisco_reachability_check.yml
 # Purpose   : Check reachability of all Cisco switches in the inventory
@@ -20,7 +19,6 @@
 #       ansible_become_method: enable
 #       ansible_become_password: "{{ vault_enable_password }}"
 # =============================================================================
-
 - name: Check reachability of all Cisco switches
   hosts: all
   gather_facts: false
@@ -28,7 +26,6 @@
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
 
   tasks:
-
     - name: Send 'show clock' command to verify connectivity
       cisco.ios.ios_command:
         commands:
