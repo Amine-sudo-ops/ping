@@ -27,7 +27,7 @@
   ansible_connection: ansible.netcommon.network_cli
   ignore_unreachable: true   # Do NOT mark task as failed if host is unreachable
 
-tasks:
+  tasks:
 
     - name: Send 'show clock' command to verify connectivity
       cisco.ios.ios_command:
