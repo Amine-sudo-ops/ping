@@ -1,0 +1,44 @@
+- name: Patch Ubuntu VMs
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Get number of upgradable packages before patching
+      shell: |
+        apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l
+      register: upgradable_before
+      changed_when: false
+
+    - name: Install all available updates
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+      register: patch_result
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Get number of upgradable packages after patching
+      shell: |
+        apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l
+      register: upgradable_after
+      changed_when: false
+
+    - name: Display patch summary
+      debug:
+        msg:
+          - "Hostname: {{ inventory_hostname }}"
+          - "Packages before patch: {{ upgradable_before.stdout }}"
+          - "Packages remaining after patch: {{ upgradable_after.stdout }}"
+          - "Packages updated: {{ (upgradable_before.stdout | int) - (upgradable_after.stdout | int) }}"
+          - "Reboot required: {{ reboot_required.stat.exists }}"
