@@ -1,44 +1,109 @@
-- name: Patch Ubuntu VMs
+---
+- name: Patch Linux VMs (Ubuntu / CentOS / Rocky)
   hosts: all
   become: yes
   gather_facts: yes
 
   tasks:
 
-    - name: Update apt cache
+    #################################################################
+    # UBUNTU / DEBIAN
+    #################################################################
+
+    - name: Update apt cache (Ubuntu/Debian)
       apt:
         update_cache: yes
         cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
 
-    - name: Get number of upgradable packages before patching
+    - name: Get number of upgradable packages before patching (Ubuntu/Debian)
       shell: |
         apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l
-      register: upgradable_before
+      register: upgradable_before_debian
       changed_when: false
+      when: ansible_os_family == "Debian"
 
-    - name: Install all available updates
+    - name: Install all available updates (Ubuntu/Debian)
       apt:
         upgrade: dist
         autoremove: yes
         autoclean: yes
-      register: patch_result
+      register: patch_result_debian
+      when: ansible_os_family == "Debian"
 
-    - name: Check if reboot is required
+    - name: Check if reboot is required (Ubuntu/Debian)
       stat:
         path: /var/run/reboot-required
-      register: reboot_required
+      register: reboot_required_debian
+      when: ansible_os_family == "Debian"
 
-    - name: Get number of upgradable packages after patching
+    - name: Get number of upgradable packages after patching (Ubuntu/Debian)
       shell: |
         apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l
-      register: upgradable_after
+      register: upgradable_after_debian
       changed_when: false
+      when: ansible_os_family == "Debian"
 
-    - name: Display patch summary
+
+    #################################################################
+    # CENTOS / ROCKY
+    #################################################################
+
+    - name: Get number of upgradable packages before patching (RHEL)
+      shell: |
+        dnf check-update | grep -E '^[a-zA-Z0-9]' | wc -l
+      register: upgradable_before_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Install all available updates (RHEL)
+      dnf:
+        name: '*'
+        state: latest
+        update_only: yes
+      register: patch_result_rhel
+      when: ansible_os_family == "RedHat"
+
+    - name: Check if reboot is required (RHEL)
+      shell: |
+        needs-restarting -r
+      register: reboot_required_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Get number of upgradable packages after patching (RHEL)
+      shell: |
+        dnf check-update | grep -E '^[a-zA-Z0-9]' | wc -l
+      register: upgradable_after_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+
+    #################################################################
+    # SUMMARY
+    #################################################################
+
+    - name: Display patch summary for Ubuntu/Debian
       debug:
         msg:
           - "Hostname: {{ inventory_hostname }}"
-          - "Packages before patch: {{ upgradable_before.stdout }}"
-          - "Packages remaining after patch: {{ upgradable_after.stdout }}"
-          - "Packages updated: {{ (upgradable_before.stdout | int) - (upgradable_after.stdout | int) }}"
-          - "Reboot required: {{ reboot_required.stat.exists }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Packages before patch: {{ upgradable_before_debian.stdout }}"
+          - "Packages remaining after patch: {{ upgradable_after_debian.stdout }}"
+          - "Packages updated: {{ (upgradable_before_debian.stdout | int) - (upgradable_after_debian.stdout | int) }}"
+          - "Reboot required: {{ reboot_required_debian.stat.exists }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Display patch summary for CentOS/Rocky
+      debug:
+        msg:
+          - "Hostname: {{ inventory_hostname }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Packages before patch: {{ upgradable_before_rhel.stdout }}"
+          - "Packages remaining after patch: {{ upgradable_after_rhel.stdout }}"
+          - "Packages updated: {{ (upgradable_before_rhel.stdout | int) - (upgradable_after_rhel.stdout | int) }}"
+          - "Reboot required: {{ reboot_required_rhel.rc != 0 }}"
+      when: ansible_os_family == "RedHat"
