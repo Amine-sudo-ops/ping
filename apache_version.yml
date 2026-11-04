@@ -1,0 +1,174 @@
+---
+- name: Apache Version Audit - Ubuntu / CentOS / Rocky
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    supported_os:
+      - Ubuntu
+      - CentOS
+      - Rocky
+
+    supported_os_versions:
+      Ubuntu: "22"
+      CentOS: "9"
+      Rocky: "9"
+
+  tasks:
+
+    #################################################################
+    # OS VALIDATION
+    #################################################################
+
+    - name: Validate supported operating system
+      assert:
+        that:
+          - ansible_distribution in supported_os
+          - ansible_distribution_major_version | int >= supported_os_versions[ansible_distribution] | int
+        fail_msg: >
+          Unsupported OS: {{ ansible_distribution }}
+          {{ ansible_distribution_version }}.
+          Supported systems: Ubuntu >= 22, CentOS >= 9, Rocky >= 9.
+        success_msg: >
+          Supported OS detected:
+          {{ ansible_distribution }} {{ ansible_distribution_version }}
+
+    #################################################################
+    # APACHE DETECTION - UBUNTU
+    #################################################################
+
+    - name: Check Apache package on Ubuntu
+      shell: |
+        dpkg-query -W -f='${Version}' apache2 2>/dev/null
+      register: apache_package_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Get Apache version on Ubuntu
+      command: apache2 -v
+      register: apache_version_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Get Apache service status on Ubuntu
+      command: systemctl is-active apache2
+      register: apache_service_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Get Apache binary path on Ubuntu
+      command: which apache2
+      register: apache_binary_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Get loaded Apache modules on Ubuntu
+      shell: apache2ctl -M 2>/dev/null
+      register: apache_modules_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+
+    #################################################################
+    # APACHE DETECTION - CENTOS / ROCKY
+    #################################################################
+
+    - name: Check Apache package on CentOS / Rocky
+      shell: |
+        rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' httpd 2>/dev/null
+      register: apache_package_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Get Apache version on CentOS / Rocky
+      command: httpd -v
+      register: apache_version_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Get Apache service status on CentOS / Rocky
+      command: systemctl is-active httpd
+      register: apache_service_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Get Apache binary path on CentOS / Rocky
+      command: which httpd
+      register: apache_binary_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Get loaded Apache modules on CentOS / Rocky
+      shell: httpd -M 2>/dev/null
+      register: apache_modules_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+
+    #################################################################
+    # APACHE INFORMATION NORMALIZATION
+    #################################################################
+
+    - name: Set Apache information for Ubuntu
+      set_fact:
+        apache_installed: "{{ apache_package_debian.rc == 0 }}"
+        apache_package: "{{ apache_package_debian.stdout | default('Not installed') }}"
+        apache_version: "{{ apache_version_debian.stdout | default('Not installed') }}"
+        apache_service: "{{ apache_service_debian.stdout | default('not found') }}"
+        apache_binary: "{{ apache_binary_debian.stdout | default('Not found') }}"
+        apache_modules: "{{ apache_modules_debian.stdout_lines | default([]) }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Set Apache information for CentOS / Rocky
+      set_fact:
+        apache_installed: "{{ apache_package_rhel.rc == 0 }}"
+        apache_package: "{{ apache_package_rhel.stdout | default('Not installed') }}"
+        apache_version: "{{ apache_version_rhel.stdout | default('Not installed') }}"
+        apache_service: "{{ apache_service_rhel.stdout | default('not found') }}"
+        apache_binary: "{{ apache_binary_rhel.stdout | default('Not found') }}"
+        apache_modules: "{{ apache_modules_rhel.stdout_lines | default([]) }}"
+      when: ansible_os_family == "RedHat"
+
+
+    #################################################################
+    # FINAL REPORT
+    #################################################################
+
+    - name: Display Apache audit report
+      debug:
+        msg:
+          - "============================================"
+          - "HOSTNAME       : {{ inventory_hostname }}"
+          - "IP ADDRESS     : {{ ansible_default_ipv4.address | default('Unknown') }}"
+          - "OPERATING SYSTEM: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "KERNEL         : {{ ansible_kernel }}"
+          - "APACHE STATUS  : {{ 'INSTALLED' if apache_installed else 'NOT INSTALLED' }}"
+          - "APACHE PACKAGE : {{ apache_package }}"
+          - "APACHE VERSION : {{ apache_version }}"
+          - "APACHE SERVICE : {{ apache_service }}"
+          - "APACHE BINARY  : {{ apache_binary }}"
+          - "============================================"
+          - "APACHE MODULES :"
+          - "{{ apache_modules | join('\n') if apache_installed else 'N/A' }}"
+          - "============================================"
+
+    #################################################################
+    # FINAL PLAYBOOK SUMMARY
+    #################################################################
+
+    - name: Apache audit completion
+      debug:
+        msg: >
+          Apache audit completed successfully on
+          {{ inventory_hostname }}.
