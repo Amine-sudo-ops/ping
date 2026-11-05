@@ -1,4 +1,3 @@
-```yaml
 ---
 - name: Apache Version Audit - Ubuntu / CentOS / Rocky
   hosts: all
