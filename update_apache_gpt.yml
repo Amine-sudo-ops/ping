@@ -1,0 +1,138 @@
+---
+- name: Remediate Apache CVE-2026-42356
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+
+    #################################################################
+    # DETECT INSTALLED PACKAGES
+    #################################################################
+
+    - name: Gather installed package information
+      ansible.builtin.package_facts:
+        manager: auto
+
+    #################################################################
+    # UBUNTU - UPDATE APACHE
+    #################################################################
+
+    - name: Update APT package cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when:
+        - ansible_os_family == "Debian"
+        - "'apache2' in ansible_facts.packages"
+
+    - name: Update Apache on Ubuntu
+      ansible.builtin.apt:
+        name: apache2
+        state: latest
+      register: apache_update_debian
+      when:
+        - ansible_os_family == "Debian"
+        - "'apache2' in ansible_facts.packages"
+      notify: Restart Apache
+
+    #################################################################
+    # CENTOS / ROCKY - UPDATE APACHE
+    #################################################################
+
+    - name: Update Apache on CentOS / Rocky
+      ansible.builtin.dnf:
+        name: httpd
+        state: latest
+        update_cache: yes
+      register: apache_update_rhel
+      when:
+        - ansible_os_family == "RedHat"
+        - "'httpd' in ansible_facts.packages"
+      notify: Restart Apache
+
+    #################################################################
+    # APPLY CHANGES
+    #################################################################
+
+    - name: Apply pending Apache restart
+      ansible.builtin.meta: flush_handlers
+
+    #################################################################
+    # VERIFY APACHE VERSION - UBUNTU
+    #################################################################
+
+    - name: Get Apache version on Ubuntu
+      ansible.builtin.command: apache2 -v
+      register: apache_version_debian
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "Debian"
+        - "'apache2' in ansible_facts.packages"
+
+    - name: Get Apache service status on Ubuntu
+      ansible.builtin.command: systemctl is-active apache2
+      register: apache_service_debian
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "Debian"
+        - "'apache2' in ansible_facts.packages"
+
+    #################################################################
+    # VERIFY APACHE VERSION - CENTOS / ROCKY
+    #################################################################
+
+    - name: Get Apache version on CentOS / Rocky
+      ansible.builtin.command: httpd -v
+      register: apache_version_rhel
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "RedHat"
+        - "'httpd' in ansible_facts.packages"
+
+    - name: Get Apache service status on CentOS / Rocky
+      ansible.builtin.command: systemctl is-active httpd
+      register: apache_service_rhel
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "RedHat"
+        - "'httpd' in ansible_facts.packages"
+
+    #################################################################
+    # FINAL REPORT
+    #################################################################
+
+    - name: Display Apache security update report
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "HOSTNAME        : {{ inventory_hostname }}"
+          - "IP ADDRESS      : {{ ansible_default_ipv4.address | default('Unknown') }}"
+          - "OPERATING SYSTEM: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "APACHE STATUS   : {{ 'INSTALLED' if ('apache2' in ansible_facts.packages or 'httpd' in ansible_facts.packages) else 'NOT INSTALLED' }}"
+          - >-
+            APACHE VERSION  :
+            {{ apache_version_debian.stdout | default('Not installed', true)
+               if ansible_os_family == 'Debian'
+               else apache_version_rhel.stdout | default('Not installed', true) }}
+          - >-
+            APACHE SERVICE  :
+            {{ apache_service_debian.stdout | default('not found', true)
+               if ansible_os_family == 'Debian'
+               else apache_service_rhel.stdout | default('not found', true) }}
+          - "============================================"
+
+  ###################################################################
+  # HANDLERS
+  ###################################################################
+
+  handlers:
+
+    - name: Restart Apache
+      ansible.builtin.service:
+        name: "{{ 'apache2' if ansible_os_family == 'Debian' else 'httpd' }}"
+        state: restarted
