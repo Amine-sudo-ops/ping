@@ -4,43 +4,14 @@
   become: yes
   gather_facts: yes
 
-  vars:
-    supported_os:
-      - Ubuntu
-      - CentOS
-      - Rocky
-
-    supported_os_versions:
-      Ubuntu: "22"
-      CentOS: "9"
-      Rocky: "9"
-
   tasks:
-
-    #################################################################
-    # OS VALIDATION
-    #################################################################
-
-    - name: Validate supported operating system
-      assert:
-        that:
-          - ansible_distribution in supported_os
-          - ansible_distribution_major_version | int >= supported_os_versions[ansible_distribution] | int
-        fail_msg: >
-          Unsupported OS: {{ ansible_distribution }}
-          {{ ansible_distribution_version }}.
-          Supported systems: Ubuntu >= 22, CentOS >= 9, Rocky >= 9.
-        success_msg: >
-          Supported OS detected:
-          {{ ansible_distribution }} {{ ansible_distribution_version }}
 
     #################################################################
     # APACHE DETECTION - UBUNTU
     #################################################################
 
     - name: Check Apache package on Ubuntu
-      shell: |
-        dpkg-query -W -f='${Version}' apache2 2>/dev/null
+      shell: dpkg-query -W -f='${Version}' apache2 2>/dev/null
       register: apache_package_debian
       changed_when: false
       failed_when: false
@@ -80,8 +51,7 @@
     #################################################################
 
     - name: Check Apache package on CentOS / Rocky
-      shell: |
-        rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' httpd 2>/dev/null
+      shell: rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' httpd 2>/dev/null
       register: apache_package_rhel
       changed_when: false
       failed_when: false
@@ -149,17 +119,17 @@
       debug:
         msg:
           - "============================================"
-          - "HOSTNAME       : {{ inventory_hostname }}"
-          - "IP ADDRESS     : {{ ansible_default_ipv4.address | default('Unknown') }}"
+          - "HOSTNAME        : {{ inventory_hostname }}"
+          - "IP ADDRESS      : {{ ansible_default_ipv4.address | default('Unknown') }}"
           - "OPERATING SYSTEM: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-          - "KERNEL         : {{ ansible_kernel }}"
-          - "APACHE STATUS  : {{ 'INSTALLED' if apache_installed else 'NOT INSTALLED' }}"
-          - "APACHE PACKAGE : {{ apache_package }}"
-          - "APACHE VERSION : {{ apache_version }}"
-          - "APACHE SERVICE : {{ apache_service }}"
-          - "APACHE BINARY  : {{ apache_binary }}"
+          - "KERNEL          : {{ ansible_kernel }}"
+          - "APACHE STATUS   : {{ 'INSTALLED' if apache_installed else 'NOT INSTALLED' }}"
+          - "APACHE PACKAGE  : {{ apache_package }}"
+          - "APACHE VERSION  : {{ apache_version }}"
+          - "APACHE SERVICE  : {{ apache_service }}"
+          - "APACHE BINARY   : {{ apache_binary }}"
           - "============================================"
-          - "APACHE MODULES :"
+          - "APACHE MODULES  :"
           - "{{ apache_modules | join('\n') if apache_installed else 'N/A' }}"
           - "============================================"
 
