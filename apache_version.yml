@@ -100,4 +100,3 @@
     - name: Apache audit completion
       debug:
         msg: "Apache audit completed successfully on {{ inventory_hostname }}"
-```
