@@ -1,5 +1,5 @@
 ---
-- name: Apache Version Audit - Ubuntu / CentOS / Rocky
+- name: OS Version Audit - Ubuntu / CentOS / Rocky
   hosts: all
   become: yes
   gather_facts: yes
@@ -7,96 +7,59 @@
   tasks:
 
     #################################################################
-    # APACHE DETECTION - UBUNTU
+    # OS DETECTION - UBUNTU
     #################################################################
 
-    - name: Get Apache version on Ubuntu
-      command: apache2 -v
-      register: apache_version_debian
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "Debian"
-
-    - name: Check Apache service on Ubuntu
-      command: systemctl is-active apache2
-      register: apache_service_debian
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "Debian"
-
-    - name: Check Apache package on Ubuntu
-      command: dpkg-query -W apache2
-      register: apache_package_debian
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "Debian"
-
-
-    #################################################################
-    # APACHE DETECTION - CENTOS / ROCKY
-    #################################################################
-
-    - name: Get Apache version on CentOS / Rocky
-      command: httpd -v
-      register: apache_version_rhel
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "RedHat"
-
-    - name: Check Apache service on CentOS / Rocky
-      command: systemctl is-active httpd
-      register: apache_service_rhel
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "RedHat"
-
-    - name: Check Apache package on CentOS / Rocky
-      command: rpm -q httpd
-      register: apache_package_rhel
-      changed_when: false
-      failed_when: false
-      when: ansible_os_family == "RedHat"
-
-
-    #################################################################
-    # NORMALIZE APACHE INFORMATION
-    #################################################################
-
-    - name: Set Apache information for Ubuntu
+    - name: Set OS information for Ubuntu
       set_fact:
-        apache_installed: "{{ apache_package_debian.rc == 0 }}"
-        apache_version: "{{ apache_version_debian.stdout | default('Not installed', true) if apache_package_debian.rc == 0 else 'Not installed' }}"
-        apache_service: "{{ apache_service_debian.stdout | default('not found', true) }}"
+        os_name: "{{ ansible_distribution }}"
+        os_version: "{{ ansible_distribution_version }}"
+        os_family: "{{ ansible_os_family }}"
       when: ansible_os_family == "Debian"
 
-    - name: Set Apache information for CentOS / Rocky
+    #################################################################
+    # OS DETECTION - CENTOS / ROCKY
+    #################################################################
+
+    - name: Set OS information for CentOS / Rocky
       set_fact:
-        apache_installed: "{{ apache_package_rhel.rc == 0 }}"
-        apache_version: "{{ apache_version_rhel.stdout | default('Not installed', true) if apache_package_rhel.rc == 0 else 'Not installed' }}"
-        apache_service: "{{ apache_service_rhel.stdout | default('not found', true) }}"
+        os_name: "{{ ansible_distribution }}"
+        os_version: "{{ ansible_distribution_version }}"
+        os_family: "{{ ansible_os_family }}"
       when: ansible_os_family == "RedHat"
 
+    #################################################################
+    # INVENTORY SUMMARY
+    #################################################################
+
+    - name: Display total number of VMs
+      debug:
+        msg:
+          - "============================================"
+          - "TOTAL NUMBER OF VMs : {{ groups['all'] | length }}"
+          - "============================================"
+      run_once: true
 
     #################################################################
     # FINAL REPORT
     #################################################################
 
-    - name: Display Apache audit report
+    - name: Display OS audit report
       debug:
         msg:
           - "============================================"
           - "HOSTNAME        : {{ ansible_hostname }}"
           - "IP ADDRESS      : {{ ansible_default_ipv4.address | default('Unknown') }}"
-          - "OPERATING SYSTEM: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-          - "APACHE STATUS   : {{ 'INSTALLED' if apache_installed else 'NOT INSTALLED' }}"
-          - "APACHE VERSION  : {{ apache_version }}"
-          - "APACHE SERVICE  : {{ apache_service }}"
+          - "OS FAMILY       : {{ os_family }}"
+          - "OPERATING SYSTEM: {{ os_name }}"
+          - "OS VERSION      : {{ os_version }}"
+          - "KERNEL VERSION  : {{ ansible_kernel }}"
           - "============================================"
 
     #################################################################
     # COMPLETION
     #################################################################
 
-    - name: Apache audit completion
+    - name: OS audit completion
       debug:
-        msg: "Apache audit completed successfully on {{ inventory_hostname }}"
+        msg: "OS audit completed successfully on {{ inventory_hostname }}"
