@@ -1,0 +1,31 @@
+---
+- name: OS Version Audit
+  hosts: all
+  become: false
+  gather_facts: yes
+
+  tasks:
+
+    #################################################################
+    # DISPLAY OS INFORMATION
+    #################################################################
+
+    - name: Display OS audit report
+      debug:
+        msg:
+          - "============================================"
+          - "HOSTNAME        : {{ ansible_hostname }}"
+          - "IP ADDRESS      : {{ ansible_default_ipv4.address | default('Unknown') }}"
+          - "OS FAMILY       : {{ ansible_os_family }}"
+          - "DISTRIBUTION    : {{ ansible_distribution }}"
+          - "OS VERSION      : {{ ansible_distribution_version }}"
+          - "KERNEL VERSION  : {{ ansible_kernel }}"
+          - "============================================"
+
+    #################################################################
+    # COMPLETION
+    #################################################################
+
+    - name: OS audit completion
+      debug:
+        msg: "OS audit completed successfully on {{ inventory_hostname }}"
