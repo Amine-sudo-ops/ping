@@ -1,1 +1,208 @@
+- name: Apache Version Audit - Ubuntu / CentOS / Rocky
+  hosts: all
+  become: yes
+  gather_facts: yes
 
+  tasks:
+
+    #################################################################
+    # APACHE DETECTION - UBUNTU / DEBIAN
+    #################################################################
+
+    - name: Get Apache version on Ubuntu
+      command: apache2 -v
+      register: apache_version_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Check Apache service on Ubuntu
+      command: systemctl is-active apache2
+      register: apache_service_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Check Apache package on Ubuntu
+      command: dpkg-query -W apache2
+      register: apache_package_debian
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+
+    #################################################################
+    # APACHE DETECTION - CENTOS / ROCKY
+    #################################################################
+
+    - name: Get Apache version on CentOS / Rocky
+      command: httpd -v
+      register: apache_version_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Check Apache service on CentOS / Rocky
+      command: systemctl is-active httpd
+      register: apache_service_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Check Apache package on CentOS / Rocky
+      command: rpm -q httpd
+      register: apache_package_rhel
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "RedHat"
+
+
+    #################################################################
+    # NORMALIZE APACHE INFORMATION
+    #################################################################
+
+    - name: Set Apache information for Ubuntu
+      set_fact:
+        apache_installed: "{{ apache_package_debian.rc == 0 }}"
+        apache_version: >-
+          {{
+            apache_version_debian.stdout | default('Not installed', true)
+            if apache_package_debian.rc == 0
+            else 'Not installed'
+          }}
+        apache_service: "{{ apache_service_debian.stdout | default('not found', true) }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Set Apache information for CentOS / Rocky
+      set_fact:
+        apache_installed: "{{ apache_package_rhel.rc == 0 }}"
+        apache_version: >-
+          {{
+            apache_version_rhel.stdout | default('Not installed', true)
+            if apache_package_rhel.rc == 0
+            else 'Not installed'
+          }}
+        apache_service: "{{ apache_service_rhel.stdout | default('not found', true) }}"
+      when: ansible_os_family == "RedHat"
+
+    - name: Set information for unsupported operating systems
+      set_fact:
+        apache_installed: false
+        apache_version: "OS not supported by this audit"
+        apache_service: "Unknown"
+      when: ansible_os_family not in ["Debian", "RedHat"]
+
+
+    #################################################################
+    # PREPARE INDIVIDUAL HOST REPORT
+    #################################################################
+
+    - name: Prepare Apache report for each host
+      set_fact:
+        apache_report: |
+          ==================================================
+          HOSTNAME         : {{ ansible_hostname }}
+          IP ADDRESS       : {{ ansible_default_ipv4.address | default(inventory_hostname) }}
+          OPERATING SYSTEM : {{ ansible_distribution }} {{ ansible_distribution_version }}
+          APACHE STATUS    : {{ 'INSTALLED' if apache_installed else 'NOT INSTALLED' }}
+          APACHE VERSION   : {{ apache_version | trim | replace('\n', ' / ') }}
+          APACHE SERVICE   : {{ apache_service }}
+          ==================================================
+
+
+    #################################################################
+    # FINAL REPORT IN AWX
+    #################################################################
+
+    - name: Display Apache audit report
+      debug:
+        msg: "{{ apache_report }}"
+
+    - name: Apache audit completion
+      debug:
+        msg: "Apache audit completed successfully on {{ inventory_hostname }}"
+
+
+    #################################################################
+    # CENTRALIZE HOST LIST FOR GLOBAL EMAIL
+    #################################################################
+
+    - name: Save list of audited hosts on AWX controller
+      set_fact:
+        apache_audit_hosts: "{{ ansible_play_hosts_all }}"
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+
+
+#####################################################################
+# SEND GLOBAL EMAIL REPORT
+#####################################################################
+
+- name: Send global Apache audit report by email
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_sender: "mohamedamine.messaoudi001@gmail.com"
+    smtp_recipient: "mohamed-amine.messaoudi@sagemcom.com"
+
+    # These values are injected by an AWX Custom Credential.
+    smtp_username: "{{ lookup('env', 'SMTP_USERNAME') }}"
+    smtp_password: "{{ lookup('env', 'SMTP_PASSWORD') }}"
+
+  tasks:
+
+    - name: Verify SMTP credentials are available
+      assert:
+        that:
+          - smtp_username | length > 0
+          - smtp_password | length > 0
+        fail_msg: "SMTP credentials are missing. Check the AWX Custom Credential."
+        success_msg: "SMTP credentials are available."
+
+    - name: Send global Apache audit report
+      community.general.mail:
+        host: "{{ smtp_server }}"
+        port: "{{ smtp_port }}"
+        secure: starttls
+        username: "{{ smtp_username }}"
+        password: "{{ smtp_password }}"
+        from: "{{ smtp_sender }}"
+        to:
+          - "{{ smtp_recipient }}"
+        subject: "AWX - Apache Version Audit - Job {{ awx_job_id | default('N/A') }}"
+        subtype: plain
+        body: |
+          ==================================================
+                    APACHE VERSION AUDIT REPORT
+          ==================================================
+
+          AWX JOB ID       : {{ awx_job_id | default('N/A') }}
+          INVENTORY        : {{ awx_inventory_name | default('N/A') }}
+          PLAYBOOK         : apache_version.yml
+          REPORT DATE      : {{ lookup('pipe', 'date "+%Y-%m-%d %H:%M:%S"') }}
+
+          NUMBER OF SERVERS: {{ hostvars['localhost']['apache_audit_hosts'] | length }}
+
+          ==================================================
+                         SERVERS DETAILS
+          ==================================================
+
+          {% for server in hostvars['localhost']['apache_audit_hosts'] %}
+          {{ hostvars[server].apache_report | default('No report available for ' ~ server) }}
+
+          {% endfor %}
+
+          ==================================================
+                         END OF REPORT
+          ==================================================
+
+          This email was automatically generated by Ansible AWX.
+      delegate_to: localhost
+      become: false
+      run_once: true
